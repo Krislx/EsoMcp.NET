@@ -21,7 +21,7 @@ public sealed class CraftingCatalogService(Database database) : ICraftingCatalog
         foreach (var chunk in itemIds.Distinct().Order().Chunk(100))
         {
             var query = $"{Endpoint}?table=minedItemSummary&ids={string.Join(',', chunk)}" +
-                "&fields=itemId,name,setId,equipType,armorType,weaponType,trait";
+                "&fields=itemId,name,setId,equipType,armorType,weaponType,trait,defaultEnchantId,enchantName,enchantDesc,abilityDesc,specialType";
             var catalog = UespCatalog.Parse(await Client.GetStringAsync(query, cancellationToken), query);
             var raw = catalog.ToJson();
             var source = new SourceDocument(Identity.Key("uesp-item-metadata", "items", string.Join(',', chunk)),
@@ -50,7 +50,7 @@ public sealed class CraftingCatalogService(Database database) : ICraftingCatalog
             foreach (var chunk in itemIds.Chunk(100))
             {
                 var query = $"{Endpoint}?table=minedItemSummary&ids={string.Join(',', chunk)}" +
-                    "&fields=itemId,name,setId,equipType,armorType,weaponType,trait";
+                    "&fields=itemId,name,setId,equipType,armorType,weaponType,trait,defaultEnchantId,enchantName,enchantDesc,abilityDesc,specialType";
                 var json = await Client.GetStringAsync(query, cancellationToken);
                 catalogs.Add(UespCatalog.Parse(json, query));
             }

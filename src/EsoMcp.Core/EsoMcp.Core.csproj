@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="EsoData.NET" Version="1.3.1" Condition="'$(UseLocalEsoData)' != 'true'" />
-    <ProjectReference Include="../../../EsoData.NET/src/EsoData/EsoData.csproj" Condition="'$(UseLocalEsoData)' == 'true'" />
+    <ProjectReference Include="$(LocalEsoDataProject)" Condition="'$(UseLocalEsoData)' == 'true'" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
   </ItemGroup>
 </Project>

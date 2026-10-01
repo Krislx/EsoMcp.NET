@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <IsPackable>false</IsPackable>
-    <Version>1.3.2</Version>
+    <Version>1.3.3-roadmap.1</Version>
+    <LocalEsoDataProject Condition="'$(LocalEsoDataProject)' == ''">$(MSBuildThisFileDirectory)../EsoData.NET/src/EsoData/EsoData.csproj</LocalEsoDataProject>
   </PropertyGroup>
 </Project>

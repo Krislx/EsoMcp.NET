@@ -8,6 +8,8 @@ var live = args.Contains("--live");
 var root = Path.Combine(Path.GetTempPath(), "EsoMcp.Smoke", Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
 var arguments = new List<string> { dll };
+var configIndex = Array.IndexOf(args, "--config");
+if (configIndex >= 0) arguments.AddRange(["--config", args[configIndex + 1]]);
 if (!live)
 {
     File.WriteAllText(Path.Combine(root, "uespLog.lua"), """

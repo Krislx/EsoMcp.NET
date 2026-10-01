@@ -11,8 +11,8 @@ public sealed class CatalogTools(Database database, AccountWorkspace workspace, 
     ISkillCatalog skills, ICraftingCatalog items)
 {
     [McpServerTool(Name = "refresh_catalog", ReadOnly = false, Destructive = false, OpenWorld = true)]
-    [Description("Explicitly download selected UESP skill definitions or set item metadata. With no selectors, refresh names for Grimoire/script item IDs present in local knowledge coverage. Only game definition IDs are sent, never account names or learned flags. Supply abilityIds and/or setIds; each at most 100. Ordinary account/build tools read local data only.")]
-    public async Task<string> Refresh(long[]? abilityIds = null, long[]? setIds = null, CancellationToken cancellationToken = default)
+    [Description("Explicitly download selected UESP skill definitions, set metadata or arbitrary itemIds (recipes, consumables, glyphs). With no selectors, refresh Grimoire/script names in local knowledge. Only definition IDs are sent, never account names or learned flags. Each selector at most 100. Ordinary queries remain local.")]
+    public async Task<string> Refresh(long[]? abilityIds = null, long[]? setIds = null, long[]? itemIds = null, CancellationToken cancellationToken = default)
     {
         var read = workspace.Read();
         foreach (var location in options.Locations)
@@ -24,7 +24,8 @@ public sealed class CatalogTools(Database database, AccountWorkspace workspace, 
             database.Replace(CatalogProjection.Project(catalog, source), cancellationToken);
         }
         var results = new List<RefreshEntry>();
-        if (abilityIds is null && setIds is null)
+        if (itemIds is { Length: > 100 }) throw new ArgumentException("At most 100 item IDs per request.");
+        if (abilityIds is null && setIds is null && itemIds is null)
         {
             var knowledgeIds = read.Data.Accounts.SelectMany(a => a.Characters)
                 .SelectMany(c => c.Progress.Knowledge)
@@ -34,6 +35,7 @@ public sealed class CatalogTools(Database database, AccountWorkspace workspace, 
         }
         if (abilityIds is not null) results.AddRange(await skills.RefreshAsync(abilityIds, cancellationToken));
         if (setIds is { Length: > 0 }) results.AddRange(await items.RefreshItemMetadataAsync(setIds, cancellationToken));
+        if (itemIds is { Length: > 0 }) results.AddRange(await items.RefreshDefinitionsAsync(itemIds, cancellationToken));
         return DataJson.Write(new { Results = results });
     }
 }

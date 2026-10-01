@@ -10,6 +10,28 @@ namespace EsoMcp.Tests;
 public class KnowledgeQueryTests
 {
     [Fact]
+    public void ActualBuildAndRichInventoryRemainDistinctFromSavedProfiles()
+    {
+        using var w = new TestWorkspace();
+        var character = new EsoCharacter { Id = "1", Name = "Example" };
+        character.Build.Attributes = new() { Stamina = 64 };
+        var fields = new long[21]; fields[0] = 123; fields[1] = 370; fields[2] = 50; fields[6] = 33;
+        character.Storage.Add(new() { Location = "Backpack", Items = [new() {
+            ItemId = 123, Trait = 22, Link = new EsoData.Items.ItemLink(fields).ToString(), Count = 1 }] });
+        var store = new WorkspaceStore(w.Database.Path);
+        store.SaveAccounts([new() { Name = "@Example", Server = "EU", Characters = [character] }]);
+        var tools = new AccountTools(new(store, w.Database, new(), offlineDefault: true));
+        using var response = JsonDocument.Parse(tools.Inspect(queries: [
+            new() { Section = "build", Character = "Example" },
+            new() { Section = "inventory", IncludeDetails = true },
+            new() { Section = "statistics", Character = "Example" }]));
+        var rows = response.RootElement.GetProperty("results");
+        Assert.Equal(64, rows[0].GetProperty("rows")[0].GetProperty("attributes").GetProperty("stamina").GetInt32());
+        Assert.Equal(33, rows[1].GetProperty("rows")[0].GetProperty("details").GetProperty("effectiveTrait").GetInt32());
+        Assert.False(rows[2].GetProperty("available").GetBoolean());
+    }
+
+    [Fact]
     public void SavedBuildDetailsExposeBarsAndScribedSkillsOnRequest()
     {
         var character = new EsoCharacter { Id = "1", Name = "Example" };

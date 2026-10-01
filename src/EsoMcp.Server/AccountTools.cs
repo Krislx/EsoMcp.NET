@@ -3,6 +3,7 @@ using System.Text.Json;
 using EsoData.Accounts;
 using EsoData.Builds;
 using EsoData.Catalogs;
+using EsoData.Items;
 using EsoMcp.Import;
 using ModelContextProtocol.Server;
 
@@ -32,7 +33,7 @@ public sealed class AccountQuery
 public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? options = null)
 {
     [McpServerTool(Name = "inspect_account", ReadOnly = true, OpenWorld = false)]
-    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, sources or prices (pricing coverage). savedBuilds accepts text to filter name/ID and includeDetails=true to return the typed build. Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
+    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Sections: characters, summary, skills, skillLines, inventory, equipment, build (actual allocation), statistics, champion, knowledge, research, savedBuilds, sources, collections, prices. Inventory includeDetails=true exposes effective link trait, enchantment and CP160 metadata; missing definitions or observations remain null. savedBuilds includeDetails=true returns a saved profile, not actual application. Inventory supports priceStatus and sort=stackPriceDesc/unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects properties. offline=true uses stored snapshots.")]
     public string Inspect(string? account = null, AccountQuery[]? queries = null, bool offline = false) => ToolResult.Json(() =>
     {
         var read = workspace.Read(offline);
@@ -65,6 +66,8 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
                     ? account.Inventory.Sum(i => i.EstimatedStackPrice ?? 0) : (decimal?)null,
                 Note = "Partial market estimate, not liquidatable wealth. Unpriced items excluded; binding/tradability is not established." }],
             "equipment" => NeedCharacter().Build.Equipment.Select(p => (object)new { Slot = p.Key, Item = p.Value }),
+            "build" => [NeedCharacter().Build],
+            "statistics" => NeedCharacter().RecordedStatistics is { } statistics ? [statistics] : [],
             "champion" => [new { NeedCharacter().Build.ChampionPoints, NeedCharacter().Build.ChampionSlots, NeedCharacter().Progress.ChampionBudgets }],
             "research" => [new { NeedCharacter().Progress.Research, NeedCharacter().Progress.ResearchKnowledge }],
             "knowledge" => NeedCharacter().Progress.Knowledge.Where(k => query.Category is null || k.Key == query.Category).SelectMany(k =>
@@ -84,6 +87,7 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
             "skillLines" => NeedCharacter().Progress.SkillLines is not null,
             "knowledge" => query.Category is null ? NeedCharacter().Progress.Knowledge.Count > 0 : NeedCharacter().Progress.Knowledge.ContainsKey(query.Category),
             "equipment" => NeedCharacter().Build.Sections.HasFlag(BuildSections.Equipment),
+            "statistics" => NeedCharacter().RecordedStatistics is not null,
             "champion" => NeedCharacter().Build.Sections.HasFlag(BuildSections.ChampionPoints),
             "collections" => account.SetCollections is not null,
             "prices" => account.PriceSource is not null,
@@ -115,8 +119,11 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
             { g.Key.SetId, g.Key.Location, g.Key.Quality, g.Key.CharacterId, Count = g.Sum(i => i.Count), Stacks = g.Count(),
                 PricedStacks = g.Count(i => i.EstimatedStackPrice.HasValue),
                 PricedStackEstimate = g.Any(i => i.EstimatedStackPrice.HasValue) ? g.Sum(i => i.EstimatedStackPrice ?? 0) : (decimal?)null });
-            return items.Select(i => (object)new { i.Reference, i.ItemId, i.Name, i.Count, i.Location, i.CharacterId, i.Quality, i.SetId, i.Trait, i.ArmorType, i.WeaponType,
-                i.Price, i.EstimatedStackPrice });
+            return items.Select(i => query.IncludeDetails
+                ? (object)new { i.Reference, i.ItemId, i.Name, i.Count, i.Location, i.CharacterId, i.Quality, i.SetId,
+                    i.Trait, i.ArmorType, i.WeaponType, i.EquipType, Details = OwnedItemDetails.Read(i, catalog), i.Price }
+                : new { i.Reference, i.ItemId, i.Name, i.Count, i.Location, i.CharacterId, i.Quality, i.SetId, i.Trait, i.ArmorType, i.WeaponType,
+                    i.Price, i.EstimatedStackPrice });
         }
         IEnumerable<object> SavedBuilds() => NeedCharacter().SavedBuilds
             .Where(b => query.Text is null || b.Id.Contains(query.Text, StringComparison.OrdinalIgnoreCase)

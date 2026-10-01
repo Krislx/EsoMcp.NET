@@ -56,6 +56,8 @@ public sealed class BuildTools(AccountWorkspace workspace, WorkspaceStore store)
         if (offset < 0 || limit is < 1 or > 100) throw new ArgumentException("Invalid page.");
         var read = workspace.Read(); var plan = store.Plan(id);
         var account = AccountWorkspace.Select(read, plan.AccountKey); var character = account.Character(plan.CharacterId);
+        if (section == "skillBudget") return GuideSkillBudget.Calculate(character,
+            plan.Target ?? throw new ArgumentException("A guide target is required."), read.Catalog);
         if (plan.Target is not null && section is "target" or "validation" or "differences")
         {
             var findings = GuideAnalysis.Compare(account, character.Id, plan.Target, read.Catalog)
